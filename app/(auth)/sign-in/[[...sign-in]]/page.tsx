@@ -34,6 +34,8 @@ export default function Page() {
                   card: "shadow-xl rounded-2xl",
                 }
               }}
+              afterSignInUrl="/collector/dashboard"
+              redirectUrl="/collector/dashboard"
             />
           </div>
         </div>

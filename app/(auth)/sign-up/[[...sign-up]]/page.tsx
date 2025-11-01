@@ -52,6 +52,8 @@ export default function Page() {
                   card: "shadow-xl rounded-2xl",
                 }
               }}
+              afterSignUpUrl="/collector/dashboard"
+              redirectUrl="/collector/dashboard"
             />
           </div>
         </div>
