@@ -45,26 +45,72 @@ export default function PickupDetailPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // For now, we'll use dummy data or fetch from API
-    // TODO: Create API endpoint to fetch pickup by ID
     const fetchPickup = async () => {
       try {
         setLoading(true)
-        // This is a placeholder - you'll need to create the API endpoint
-        // const response = await fetch(`/api/pickups/${params.id}`)
-        // const data = await response.json()
-        // setPickup(data.pickup)
+        setError(null)
         
-        // For now, just show a message
-        setError('Pickup detail API endpoint not yet implemented')
-        setLoading(false)
+        // Handle Next.js params which might be string or array
+        const pickupId = Array.isArray(params.id) ? params.id[0] : params.id
+        
+        if (!pickupId) {
+          throw new Error('Pickup ID is missing')
+        }
+        
+        console.log('🔍 Fetching pickup with ID:', pickupId, typeof pickupId)
+        
+        const response = await fetch(`/api/pickups/${pickupId}`)
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+          console.error('❌ Failed to fetch pickup:', {
+            status: response.status,
+            error: errorData.error,
+            pickupId: pickupId
+          })
+          throw new Error(errorData.error || `Failed to fetch pickup (${response.status})`)
+        }
+        
+        const data = await response.json()
+        
+        if (data.success && data.pickup) {
+          // Map API response to component interface
+          setPickup({
+            id: data.pickup.id,
+            category: data.pickup.category,
+            estimatedWeight: data.pickup.estimatedWeight,
+            status: data.pickup.status,
+            location: {
+              coordinates: data.pickup.location.coordinates,
+              address: data.pickup.location.address,
+            },
+            photos: {
+              before: { url: data.pickup.photos.before.url },
+              after: data.pickup.photos.after ? { url: data.pickup.photos.after.url } : undefined,
+            },
+            verification: data.pickup.verification ? {
+              aiConfidence: data.pickup.verification.aiConfidence,
+              aiCategory: data.pickup.verification.aiCategory,
+              aiWeight: data.pickup.verification.aiWeight,
+              manualReview: data.pickup.verification.manualReview,
+            } : undefined,
+            statusHistory: data.pickup.statusHistory || [],
+            notes: data.pickup.notes,
+            createdAt: data.pickup.createdAt,
+          })
+        } else {
+          throw new Error('Invalid response format')
+        }
       } catch (err) {
-        setError('Failed to load pickup details')
+        console.error('Error fetching pickup:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load pickup details')
+      } finally {
         setLoading(false)
       }
     }
 
-    if (params.id) {
+    const pickupId = Array.isArray(params.id) ? params.id[0] : params.id
+    if (pickupId) {
       fetchPickup()
     }
   }, [params.id])
@@ -258,35 +304,80 @@ export default function PickupDetailPage() {
         {pickup.statusHistory && pickup.statusHistory.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Status History</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-emerald-600" />
+                Status History
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {pickup.statusHistory.map((entry, index) => (
-                  <div key={index} className="flex items-start gap-4">
-                    <div className="flex-shrink-0">
+                  <div key={index} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
+                    <div className="flex-shrink-0 mt-0.5">
                       {entry.status === 'verified' || entry.status === 'paid' ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        </div>
                       ) : entry.status === 'rejected' ? (
-                        <XCircle className="w-5 h-5 text-red-600" />
+                        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                          <XCircle className="w-5 h-5 text-red-600" />
+                        </div>
                       ) : (
-                        <Clock className="w-5 h-5 text-gray-400" />
+                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                          <Clock className="w-5 h-5 text-gray-400" />
+                        </div>
                       )}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold capitalize">{entry.status}</span>
-                        <span className="text-sm text-gray-500">
-                          {new Date(entry.timestamp).toLocaleString()}
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-semibold capitalize text-gray-900">{entry.status}</span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(entry.timestamp).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </span>
                       </div>
                       {entry.notes && (
-                        <p className="text-sm text-gray-600">{entry.notes}</p>
+                        <p className="text-sm text-gray-600 mt-1">{entry.notes}</p>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Map View */}
+        {pickup.location.coordinates && pickup.location.coordinates.length === 2 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-emerald-600" />
+                Location on Map
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  style={{ border: 0 }}
+                  src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${pickup.location.coordinates[1]},${pickup.location.coordinates[0]}&zoom=15`}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+              <p className="text-sm text-gray-600 mt-3 flex items-center gap-2">
+                <MapPin className="w-4 h-4" />
+                {pickup.location.address}
+              </p>
             </CardContent>
           </Card>
         )}

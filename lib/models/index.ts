@@ -32,10 +32,11 @@ export async function connectToDatabase() {
   try {
     // Connect to MongoDB using Mongoose
     // MONGODB_URI is guaranteed to be defined due to the check above
-    logger.info('Connecting to MongoDB', { uri: MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@') })
+    const uri = MONGODB_URI!
+    logger.info('Connecting to MongoDB', { uri: uri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@') })
     const connectStartTime = Date.now()
     
-    await mongoose.connect(MONGODB_URI!, {
+    await mongoose.connect(uri, {
       bufferCommands: false,
     })
     
@@ -46,7 +47,7 @@ export async function connectToDatabase() {
     })
   } catch (error) {
     logger.error('MongoDB connection failed', error instanceof Error ? error : new Error(String(error)), {
-      uri: MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')
+      uri: MONGODB_URI!.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')
     })
     isConnected = false
     throw error
@@ -54,4 +55,8 @@ export async function connectToDatabase() {
 }
 
 export { default as Pickup } from './Pickup'
+export { default as CollectorProfile } from './CollectorProfile'
+export { default as WasteHotspot } from './WasteHotspot'
+export { default as Transaction } from './Transaction'
+export { default as EkoTokenTransaction } from './EkoTokenTransaction'
 

@@ -4,6 +4,7 @@ import { connectToDatabase, Pickup } from '@/lib/models'
 import { uploadToCloudinary } from '@/lib/cloudinary'
 import { analyzePlasticImage } from '@/lib/gemini'
 import { logger } from '@/lib/logger'
+import { updateHotspotFromPickup } from '@/lib/utils/hotspot-updater'
 
 export async function POST(request: NextRequest) {
   const requestStartTime = Date.now()
@@ -225,7 +226,27 @@ export async function POST(request: NextRequest) {
         mongoId: savedPickup._id,
         saveDuration: `${Date.now() - saveStartTime}ms`
       })
-      
+
+      // Update hotspot map (async, don't wait)
+      updateHotspotFromPickup({
+        location: savedPickup.location,
+        category: savedPickup.category,
+        estimatedWeight: savedPickup.estimatedWeight,
+        collectorId: savedPickup.collectorId,
+        _id: savedPickup._id,
+      }).catch((err) => {
+        logger.error('Failed to update hotspot (non-critical)', err instanceof Error ? err : new Error(String(err)))
+      })
+
+      // Process tokens if pickup is verified (async, don't wait)
+      if (savedPickup.status === 'verified') {
+        import('@/lib/services/token-service').then(({ processPickupTokens }) => {
+          processPickupTokens(savedPickup._id.toString(), savedPickup.collectorId).catch((err) => {
+            logger.error('Failed to process pickup tokens (non-critical)', err instanceof Error ? err : new Error(String(err)))
+          })
+        })
+      }
+
       // Convert to plain object for response
       const responseData = {
         id: savedPickup._id.toString(),

@@ -72,7 +72,7 @@ export default function ImpactSection() {
               ))}
             </div>
 
-            <Link href={isSignedIn ? "/dashboard" : "/sign-up"}>
+            <Link href={isSignedIn ? "/collector/dashboard" : "/sign-up"}>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button size="lg" className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-lg px-10 py-7 shadow-xl shadow-emerald-500/50">
                   Start Making Impact

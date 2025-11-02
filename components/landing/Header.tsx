@@ -59,7 +59,7 @@ export default function Header() {
 
           <div className="flex items-center gap-4">
             {isSignedIn ? (
-              <Link href="/dashboard">
+              <Link href="/collector/dashboard">
                 <Button variant="outline" size="sm" className="font-semibold">Dashboard</Button>
               </Link>
             ) : (

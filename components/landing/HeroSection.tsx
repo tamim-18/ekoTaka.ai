@@ -139,7 +139,7 @@ export default function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.8 }}
           >
-            <Link href={isSignedIn ? "/dashboard" : "/sign-up"}>
+            <Link href={isSignedIn ? "/collector/dashboard" : "/sign-up"}>
               <motion.div
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}

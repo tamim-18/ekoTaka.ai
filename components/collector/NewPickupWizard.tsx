@@ -122,11 +122,12 @@ export default function NewPickupWizard() {
     // Validate required fields with detailed error messages
     // Use recovered photo if available
     if (!beforePhoto || !(beforePhoto instanceof File)) {
+      const isFile = beforePhoto !== null && typeof beforePhoto === 'object' && 'name' in beforePhoto
       console.error('❌ Before photo validation failed:', {
         statePhoto: formData.photos.before,
         refPhoto: fileRefs.current.before,
         recoveredPhoto: beforePhoto,
-        isFile: beforePhoto instanceof File
+        isFile: isFile
       })
       alert('Please upload a before photo. Go back to step 1 and upload an image.')
       setIsSubmitting(false)
@@ -192,11 +193,24 @@ export default function NewPickupWizard() {
         throw new Error(errorData.error || `Failed to submit pickup (${response.status})`)
       }
 
-      const result = await response.json()
-      console.log('✅ Pickup submitted successfully:', result.pickupId)
-      
-      // Redirect to pickup detail page
-      router.push(`/collector/pickups/${result.pickupId}`)
+              const result = await response.json()
+              console.log('✅ Pickup submitted successfully:', {
+                pickupId: result.pickupId,
+                pickup: result.pickup,
+                hasPickupId: !!result.pickupId,
+                idType: typeof result.pickupId
+              })
+
+              // Redirect to pickup detail page
+              // Use pickupId from response, or fallback to pickup.id
+              const pickupId = result.pickupId || result.pickup?.id
+              if (!pickupId) {
+                console.error('❌ No pickup ID in response:', result)
+                throw new Error('No pickup ID received from server')
+              }
+              
+              console.log('🔄 Redirecting to pickup detail page:', `/collector/pickups/${pickupId}`)
+              router.push(`/collector/pickups/${pickupId}`)
     } catch (error) {
       console.error('Error submitting pickup:', error)
       alert(error instanceof Error ? error.message : 'Failed to submit pickup. Please try again.')

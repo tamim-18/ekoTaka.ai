@@ -52,7 +52,7 @@ export default function CTASection() {
             Join thousands of collectors and brands creating a sustainable future through intelligent technology
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-6">
-            <Link href={isSignedIn ? "/dashboard" : "/sign-up"}>
+            <Link href={isSignedIn ? "/collector/dashboard" : "/sign-up"}>
               <motion.div
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}

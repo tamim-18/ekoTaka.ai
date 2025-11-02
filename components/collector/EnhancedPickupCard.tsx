@@ -5,10 +5,26 @@ import { Package, MapPin, Calendar, Weight, ArrowRight, CheckCircle2 } from 'luc
 import Image from 'next/image'
 import Link from 'next/link'
 import StatusBadge from './StatusBadge'
-import { DummyPickup } from '@/lib/dummy-data'
+
+interface PickupData {
+  id: string
+  category: string
+  estimatedWeight: number
+  actualWeight?: number
+  status: 'pending' | 'verified' | 'rejected' | 'paid'
+  location: {
+    coordinates: [number, number]
+    address?: string
+  }
+  photos: {
+    before: { url: string }
+    after?: { url: string }
+  }
+  createdAt: string
+}
 
 interface EnhancedPickupCardProps {
-  pickup: DummyPickup
+  pickup: PickupData
   index: number
 }
 

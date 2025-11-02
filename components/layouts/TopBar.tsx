@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
+import { SignOutButton } from '@clerk/nextjs'
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -31,15 +32,15 @@ export default function TopBar({ onMenuClick, title, action }: TopBarProps) {
   }, [])
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-emerald-100/50 bg-white/95 backdrop-blur-xl">
-      <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 w-full border-b border-emerald-100/30 bg-white/80 backdrop-blur-xl shadow-sm">
+      <div className="flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Left Section */}
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
             onClick={onMenuClick}
-            className="lg:hidden"
+            className="lg:hidden h-9 w-9"
           >
             <Menu className="w-5 h-5" />
           </Button>
@@ -48,43 +49,47 @@ export default function TopBar({ onMenuClick, title, action }: TopBarProps) {
             <motion.h1
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="text-2xl font-black text-gray-900 hidden sm:block"
+              className="text-xl font-black bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent hidden sm:block"
             >
               {title}
             </motion.h1>
           )}
 
           {/* Search Bar - Hidden on mobile */}
-          <div className="hidden md:flex items-center gap-2 flex-1 max-w-md">
+          <div className="hidden md:flex items-center gap-2 flex-1 max-w-md ml-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 type="search"
                 placeholder="Search pickups, transactions..."
-                className="pl-10 bg-gray-50 border-gray-200 focus:border-emerald-500"
+                className="pl-10 h-9 bg-gray-50/50 border-gray-200 focus:border-emerald-500 focus:bg-white text-sm"
               />
             </div>
           </div>
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {action}
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="w-5 h-5 text-gray-600" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full"></span>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="relative h-9 w-9 hover:bg-emerald-50"
+          >
+            <Bell className="w-4.5 h-4.5 text-gray-600" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full border-2 border-white"></span>
           </Button>
 
-          {/* User Menu - Only render after mount to avoid hydration issues */}
+          {/* User Menu */}
           {mounted ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10 border-2 border-emerald-200">
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 hover:ring-2 hover:ring-emerald-200">
+                  <Avatar className="h-9 w-9 border-2 border-emerald-200/50">
                     <AvatarImage src={user?.imageUrl} alt={user?.fullName || 'User'} />
-                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white font-bold">
+                    <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs font-bold">
                       {user?.fullName?.charAt(0) || 'U'}
                     </AvatarFallback>
                   </Avatar>
@@ -93,7 +98,7 @@ export default function TopBar({ onMenuClick, title, action }: TopBarProps) {
               <DropdownMenuContent className="w-56" align="end">
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
+                    <p className="text-sm font-semibold leading-none">
                       {user?.fullName || 'Collector'}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
@@ -115,16 +120,20 @@ export default function TopBar({ onMenuClick, title, action }: TopBarProps) {
                   </a>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600 cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
+                <DropdownMenuItem className="text-red-600 cursor-pointer" asChild>
+                  <SignOutButton>
+                    <div className="flex items-center">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </div>
+                  </SignOutButton>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-              <Avatar className="h-10 w-10 border-2 border-emerald-200">
-                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white font-bold">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
+              <Avatar className="h-9 w-9 border-2 border-emerald-200/50">
+                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs font-bold">
                   U
                 </AvatarFallback>
               </Avatar>
@@ -135,4 +144,3 @@ export default function TopBar({ onMenuClick, title, action }: TopBarProps) {
     </header>
   )
 }
-
