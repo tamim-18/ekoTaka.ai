@@ -28,7 +28,8 @@ import {
 } from 'lucide-react'
 import { logger } from '@/lib/logger'
 
-const libraries: ('places' | 'geometry')[] = ['places', 'geometry']
+// Use comprehensive libraries set - all components should use the same to avoid conflicts
+const libraries: ('places' | 'geometry' | 'visualization')[] = ['places', 'geometry', 'visualization']
 
 interface Hotspot {
   id: string

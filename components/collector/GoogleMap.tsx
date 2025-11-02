@@ -5,7 +5,8 @@ import { useJsApiLoader, GoogleMap, Marker, InfoWindow } from '@react-google-map
 import { MapPin } from 'lucide-react'
 import { logger } from '@/lib/logger'
 
-const libraries: ('places' | 'drawing' | 'geometry')[] = ['places']
+// Use comprehensive libraries set - all components should use the same to avoid conflicts
+const libraries: ('places' | 'geometry' | 'visualization')[] = ['places', 'geometry', 'visualization']
 
 interface GoogleMapComponentProps {
   onLocationSelect: (coordinates: [number, number], address: string) => void
@@ -28,10 +29,14 @@ export default function GoogleMapComponent({
   const [isGeocoding, setIsGeocoding] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
 
+  // Check if Google Maps is already loaded to prevent re-initialization conflicts
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    googleMapsApiKey: apiKey,
     libraries,
+    // Prevent re-loading if already initialized
+    preventGoogleFontsLoading: false,
   })
 
   // Geocode coordinates to get address

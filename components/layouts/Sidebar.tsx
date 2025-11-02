@@ -146,7 +146,24 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
             {navigationItems.map((item, index) => {
               const Icon = item.icon
-              const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+              // Check exact match first
+              const exactMatch = pathname === item.href
+              
+              // For parent routes, check if pathname starts with href + '/'
+              // But exclude cases where a more specific menu route exists
+              const isParentRoute = pathname?.startsWith(item.href + '/')
+              
+              // Check if there's a more specific menu route that should be active instead
+              // This prevents both /collector/pickups and /collector/pickups/new from being highlighted
+              const hasMoreSpecificMenuRoute = navigationItems.some(
+                otherItem => 
+                  otherItem.href !== item.href && 
+                  pathname === otherItem.href && // Exact match with another menu item
+                  otherItem.href.startsWith(item.href + '/') // That other item is a child of this one
+              )
+              
+              // Active if exact match, or if it's a parent route and no more specific menu route exists
+              const isActive = exactMatch || (isParentRoute && !hasMoreSpecificMenuRoute)
               const isHighlight = item.highlight
 
               const navItem = (
