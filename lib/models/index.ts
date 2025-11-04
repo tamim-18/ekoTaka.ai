@@ -54,9 +54,14 @@ export async function connectToDatabase() {
   }
 }
 
+export { default as User } from './User'
 export { default as Pickup } from './Pickup'
 export { default as CollectorProfile } from './CollectorProfile'
+export { default as BrandProfile } from './BrandProfile'
+export { default as Order } from './Order'
 export { default as WasteHotspot } from './WasteHotspot'
 export { default as Transaction } from './Transaction'
 export { default as EkoTokenTransaction } from './EkoTokenTransaction'
+export { default as Conversation } from './Conversation'
+export { default as Message } from './Message'
 

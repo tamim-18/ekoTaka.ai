@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function CTASection() {
-  const { isSignedIn } = useUser()
+  const { user } = useAuth()
 
   return (
     <section className="relative py-32 px-4 sm:px-6 lg:px-8 overflow-hidden">
@@ -52,7 +52,7 @@ export default function CTASection() {
             Join thousands of collectors and brands creating a sustainable future through intelligent technology
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-6">
-            <Link href={isSignedIn ? "/collector/dashboard" : "/sign-up"}>
+            <Link href={user ? "/collector/dashboard" : "/sign-up"}>
               <motion.div
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}

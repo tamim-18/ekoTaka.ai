@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUser } from '@/lib/utils/auth'
 import { optimizeRoute, type Waypoint } from '@/lib/services/route-optimizer'
 import { logger } from '@/lib/logger'
 
@@ -14,14 +14,16 @@ import { logger } from '@/lib/logger'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
 
-    if (!userId) {
+    if (!tokenData) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    
+    const userId = tokenData.userId
 
     const body = await request.json()
     const { origin, waypoints, strategy = 'balanced' } = body

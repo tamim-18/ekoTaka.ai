@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import { Bell, Search, Menu, User as UserIcon, LogOut, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
-import { SignOutButton } from '@clerk/nextjs'
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -24,7 +23,7 @@ interface TopBarProps {
 }
 
 export default function TopBar({ onMenuClick, title, action }: TopBarProps) {
-  const { user } = useUser()
+  const { user, signOut } = useAuth()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -88,7 +87,6 @@ export default function TopBar({ onMenuClick, title, action }: TopBarProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 hover:ring-2 hover:ring-emerald-200">
                   <Avatar className="h-9 w-9 border-2 border-emerald-200/50">
-                    <AvatarImage src={user?.imageUrl} alt={user?.fullName || 'User'} />
                     <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs font-bold">
                       {user?.fullName?.charAt(0) || 'U'}
                     </AvatarFallback>
@@ -102,7 +100,7 @@ export default function TopBar({ onMenuClick, title, action }: TopBarProps) {
                       {user?.fullName || 'Collector'}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user?.primaryEmailAddress?.emailAddress || 'user@ekotaka.ai'}
+                      {user?.email || 'user@ekotaka.ai'}
                     </p>
                   </div>
                 </DropdownMenuLabel>
@@ -120,13 +118,12 @@ export default function TopBar({ onMenuClick, title, action }: TopBarProps) {
                   </a>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600 cursor-pointer" asChild>
-                  <SignOutButton>
-                    <div className="flex items-center">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
-                    </div>
-                  </SignOutButton>
+                <DropdownMenuItem 
+                  className="text-red-600 cursor-pointer" 
+                  onClick={() => signOut()}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

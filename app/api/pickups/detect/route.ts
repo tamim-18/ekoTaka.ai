@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUser } from '@/lib/utils/auth'
 import { analyzePlasticImage } from '@/lib/gemini'
 import { logger } from '@/lib/logger'
 
@@ -12,15 +12,17 @@ export async function POST(request: NextRequest) {
   logger.info('=== AI PLASTIC DETECTION REQUEST ===')
   
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
     
-    if (!userId) {
+    if (!tokenData) {
       logger.warn('Unauthorized AI detection attempt')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    
+    const userId = tokenData.userId
 
     logger.info('Authenticated user requesting AI detection', { userId })
 

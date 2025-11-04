@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import { useInView } from 'react-intersection-observer'
 import { ArrowRight, CheckCircle2 } from 'lucide-react'
@@ -23,7 +23,7 @@ const stats = [
 ]
 
 export default function ImpactSection() {
-  const { isSignedIn } = useUser()
+  const { user } = useAuth()
 
   return (
     <section id="impact" className="relative py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-emerald-50 via-white to-teal-50 overflow-hidden">
@@ -72,7 +72,7 @@ export default function ImpactSection() {
               ))}
             </div>
 
-            <Link href={isSignedIn ? "/collector/dashboard" : "/sign-up"}>
+            <Link href={user ? "/collector/dashboard" : "/sign-up"}>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button size="lg" className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-lg px-10 py-7 shadow-xl shadow-emerald-500/50">
                   Start Making Impact

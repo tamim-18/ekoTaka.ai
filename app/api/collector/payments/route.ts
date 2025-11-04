@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUser } from '@/lib/utils/auth'
 import { connectToDatabase, Transaction, CollectorProfile } from '@/lib/models'
 import { logger } from '@/lib/logger'
 
@@ -16,14 +16,16 @@ import { logger } from '@/lib/logger'
  */
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
 
-    if (!userId) {
+    if (!tokenData) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    
+    const userId = tokenData.userId
 
     await connectToDatabase()
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUser } from '@/lib/utils/auth'
 import { connectToDatabase, EkoTokenTransaction, Pickup } from '@/lib/models'
 import { getTokenBalance, recalculateTokenBalance } from '@/lib/services/token-service'
 import { getNextMilestone } from '@/lib/services/token-calculator'
@@ -13,11 +13,13 @@ export async function GET(request: NextRequest) {
   const requestStartTime = Date.now()
 
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
 
-    if (!userId) {
+    if (!tokenData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    
+    const userId = tokenData.userId
 
     await connectToDatabase()
 
@@ -105,7 +107,7 @@ export async function GET(request: NextRequest) {
       })),
     })
   } catch (error) {
-    logger.error('Error fetching token data', error instanceof Error ? error : new Error(String(error)), { userId: await auth().then((a) => a.userId) })
+    logger.error('Error fetching token data', error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       {
         error: 'Failed to fetch token data',
@@ -122,11 +124,13 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
 
-    if (!userId) {
+    if (!tokenData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    
+    const userId = tokenData.userId
 
     await connectToDatabase()
 
@@ -137,9 +141,7 @@ export async function POST(request: NextRequest) {
       balance,
     })
   } catch (error) {
-    logger.error('Error recalculating tokens', error instanceof Error ? error : new Error(String(error)), {
-      userId: await auth().then((a) => a.userId),
-    })
+    logger.error('Error recalculating tokens', error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       {
         error: 'Failed to recalculate tokens',

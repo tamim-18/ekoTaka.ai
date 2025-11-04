@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { Button } from '@/components/ui/button'
@@ -72,7 +72,7 @@ interface CollectorProfile {
 }
 
 export default function ProfilePage() {
-  const { user } = useUser()
+  const { user } = useAuth()
   const [profile, setProfile] = useState<CollectorProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -239,19 +239,9 @@ export default function ProfilePage() {
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6 -mt-16 pb-6">
               <div className="relative">
                 <div className="w-32 h-32 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center overflow-hidden">
-                  {user?.imageUrl ? (
-                    <Image
-                      src={user.imageUrl}
-                      alt={profile.personalInfo.fullName || 'Profile'}
-                      width={128}
-                      height={128}
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-4xl font-bold">
-                      {profile.personalInfo.fullName?.charAt(0) || user?.firstName?.charAt(0) || 'U'}
-                    </div>
-                  )}
+                  <div className="w-full h-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-4xl font-bold">
+                    {profile.personalInfo.fullName?.charAt(0) || user?.fullName?.charAt(0) || 'U'}
+                  </div>
                 </div>
                 {profile.verification.isVerified && (
                   <div className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-emerald-500 border-4 border-white flex items-center justify-center">
@@ -274,7 +264,7 @@ export default function ProfilePage() {
                 <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
                     <Mail className="w-4 h-4" />
-                    {profile.personalInfo.email || user?.primaryEmailAddress?.emailAddress}
+                    {profile.personalInfo.email || user?.email}
                   </div>
                   {profile.personalInfo.phone && (
                     <div className="flex items-center gap-2">

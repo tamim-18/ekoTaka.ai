@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/AuthContext'
 import { useRef } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { ArrowRight, Sparkles, Waves, ArrowDown, Users, Recycle, Shield, Zap, Leaf, Globe, Target, Activity, TrendingUp } from 'lucide-react'
@@ -10,7 +10,7 @@ import { FloatingIcon } from './FloatingIcon'
 import { AnimatedCounter } from './AnimatedCounter'
 
 export default function HeroSection() {
-  const { isSignedIn } = useUser()
+  const { user } = useAuth()
   const heroRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -139,7 +139,7 @@ export default function HeroSection() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.8 }}
           >
-            <Link href={isSignedIn ? "/collector/dashboard" : "/sign-up"}>
+            <Link href={user ? "/collector/dashboard" : "/sign-up"}>
               <motion.div
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}

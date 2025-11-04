@@ -1,12 +1,15 @@
 import mongoose, { Schema, Document } from 'mongoose'
 
 export interface ITransaction extends Document {
-  collectorId: string
-  pickupId: string
+  collectorId: string // Required - who receives the payment
+  brandId?: string // Optional - who makes the payment (for brand purchases)
+  pickupId?: string // Optional - pickup this transaction is for
+  orderId?: string // Optional - order this transaction is for
   amount: number
-  paymentMethod: 'bkash' | 'nagad'
+  paymentMethod: 'bkash' | 'nagad' | 'bank_transfer' | 'card'
   transactionId: string // External payment gateway transaction ID
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+  transactionType: 'collector_payment' | 'brand_purchase' // Who initiated the transaction
   initiatedAt: Date
   completedAt?: Date
   failedAt?: Date
@@ -15,6 +18,7 @@ export interface ITransaction extends Document {
     paymentGateway?: string
     reference?: string
     notes?: string
+    orderReference?: string // Reference to order if applicable
   }
   createdAt: Date
   updatedAt: Date
@@ -27,9 +31,16 @@ const TransactionSchema = new Schema<ITransaction>(
       required: true,
       index: true,
     },
+    brandId: {
+      type: String,
+      index: true,
+    },
     pickupId: {
       type: String,
-      required: true,
+      index: true,
+    },
+    orderId: {
+      type: String,
       index: true,
     },
     amount: {
@@ -39,7 +50,7 @@ const TransactionSchema = new Schema<ITransaction>(
     },
     paymentMethod: {
       type: String,
-      enum: ['bkash', 'nagad'],
+      enum: ['bkash', 'nagad', 'bank_transfer', 'card'],
       required: true,
     },
     transactionId: {
@@ -54,6 +65,12 @@ const TransactionSchema = new Schema<ITransaction>(
       default: 'pending',
       index: true,
     },
+    transactionType: {
+      type: String,
+      enum: ['collector_payment', 'brand_purchase'],
+      default: 'collector_payment',
+      index: true,
+    },
     initiatedAt: {
       type: Date,
       default: Date.now,
@@ -66,6 +83,7 @@ const TransactionSchema = new Schema<ITransaction>(
       paymentGateway: String,
       reference: String,
       notes: String,
+      orderReference: String,
     },
   },
   {
@@ -76,7 +94,11 @@ const TransactionSchema = new Schema<ITransaction>(
 // Create indexes for efficient queries
 TransactionSchema.index({ collectorId: 1, createdAt: -1 })
 TransactionSchema.index({ collectorId: 1, status: 1 })
+TransactionSchema.index({ brandId: 1, createdAt: -1 })
+TransactionSchema.index({ brandId: 1, status: 1 })
 TransactionSchema.index({ pickupId: 1 })
+TransactionSchema.index({ orderId: 1 })
+TransactionSchema.index({ transactionType: 1 })
 
 // Prevent model re-compilation during hot reload
 const Transaction =

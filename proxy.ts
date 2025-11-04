@@ -1,16 +1,22 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextRequest, NextResponse } from 'next/server'
 
-// Define protected routes (collector routes require authentication)
-const isProtectedRoute = createRouteMatcher([
-  '/collector(.*)',
-]);
+// Define protected routes
+const protectedRoutes = ['/collector', '/brand', '/dashboard']
 
-export default clerkMiddleware(async (auth, req) => {
-  // Protect collector routes - require authentication
-  if (isProtectedRoute(req)) {
-    await auth.protect();
+export default function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // Check if route is protected
+  const isProtected = protectedRoutes.some((route) => pathname.startsWith(route))
+
+  if (isProtected) {
+    // Authentication will be checked in each route handler
+    // We can't use async cookies() in proxy, so we'll check in route handlers
+    return NextResponse.next()
   }
-});
+
+  return NextResponse.next()
+}
 
 export const config = {
   matcher: [

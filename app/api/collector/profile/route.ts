@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs/server'
-import { connectToDatabase, CollectorProfile } from '@/lib/models'
+import { getCurrentUser } from '@/lib/utils/auth'
+import { connectToDatabase, CollectorProfile, User } from '@/lib/models'
 import { Pickup } from '@/lib/models'
 import { logger } from '@/lib/logger'
 
@@ -10,29 +10,31 @@ import { logger } from '@/lib/logger'
  */
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
 
-    if (!userId) {
+    if (!tokenData) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    
+    const userId = tokenData.userId
 
     await connectToDatabase()
 
     // Get or create profile
     let profile = await CollectorProfile.findOne({ userId })
 
-    // Get user info from Clerk
-    const user = await currentUser()
+    // Get user info from database
+    const user = await User.findById(userId)
 
     // If profile doesn't exist, create one
     if (!profile) {
       profile = new CollectorProfile({
         userId,
         personalInfo: {
-          fullName: user?.fullName || user?.firstName || 'Collector',
+          fullName: user?.fullName || 'Collector',
         },
         stats: {
           memberSince: new Date(),
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
         userId: profile.userId,
         personalInfo: {
           ...profile.personalInfo,
-          email: user?.primaryEmailAddress?.emailAddress,
+          email: user?.email,
         },
         verification: profile.verification,
         stats: profile.stats,
@@ -88,14 +90,16 @@ export async function GET(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
 
-    if (!userId) {
+    if (!tokenData) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    
+    const userId = tokenData.userId
 
     await connectToDatabase()
 

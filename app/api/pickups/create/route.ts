@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUser } from '@/lib/utils/auth'
 import { connectToDatabase, Pickup } from '@/lib/models'
 import { uploadToCloudinary, type CloudinaryUploadResult } from '@/lib/cloudinary'
 import { analyzePlasticImage } from '@/lib/gemini'
@@ -11,15 +11,17 @@ export async function POST(request: NextRequest) {
   logger.info('=== NEW PICKUP REQUEST RECEIVED ===')
   
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
     
-    if (!userId) {
-      logger.warn('Unauthorized pickup creation attempt', { userId })
+    if (!tokenData) {
+      logger.warn('Unauthorized pickup creation attempt')
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    
+    const userId = tokenData.userId
 
     logger.info('Authenticated user', { userId })
     

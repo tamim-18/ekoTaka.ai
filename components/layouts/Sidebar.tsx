@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/AuthContext'
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -66,7 +66,7 @@ const navigationItems = [
 
 export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const pathname = usePathname()
-  const { user } = useUser()
+  const { user } = useAuth()
   const [isMobile, setIsMobile] = useState(true)
   const [mounted, setMounted] = useState(false)
   // Removed expanded state - sidebar is always full width when open
@@ -219,7 +219,6 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                 whileHover={{ scale: 1.02 }}
               >
                 <Avatar className="w-8 h-8 border-2 border-emerald-200 flex-shrink-0">
-                  <AvatarImage src={user?.imageUrl} alt={user?.fullName || 'User'} />
                   <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-xs font-bold">
                     {user?.fullName?.charAt(0) || 'U'}
                   </AvatarFallback>
@@ -229,7 +228,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                     {user?.fullName || 'Collector'}
                   </p>
                   <p className="text-[10px] text-gray-500 truncate">
-                    {user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'user'}
+                    {user?.email?.split('@')[0] || 'user'}
                   </p>
                 </div>
               </motion.div>

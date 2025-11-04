@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUser } from '@/lib/utils/auth'
 import { connectToDatabase, EkoTokenTransaction } from '@/lib/models'
 import { logger } from '@/lib/logger'
 
@@ -11,11 +11,13 @@ export async function GET(request: NextRequest) {
   const requestStartTime = Date.now()
 
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
 
-    if (!userId) {
+    if (!tokenData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    
+    const userId = tokenData.userId
 
     await connectToDatabase()
 
@@ -126,9 +128,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    logger.error('Error fetching token history', error instanceof Error ? error : new Error(String(error)), {
-      userId: await auth().then((a) => a.userId),
-    })
+    logger.error('Error fetching token history', error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       {
         error: 'Failed to fetch token history',

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUser } from '@/lib/utils/auth'
 import { connectToDatabase, Pickup } from '@/lib/models'
 import { logger } from '@/lib/logger'
 
@@ -20,15 +20,17 @@ export async function GET(
   })
 
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
 
-    if (!userId) {
+    if (!tokenData) {
       logger.warn('Unauthorized pickup fetch attempt', { pickupId: idString })
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    
+    const userId = tokenData.userId
 
     logger.info('Authenticated user fetching pickup', { userId, pickupId: idString })
 

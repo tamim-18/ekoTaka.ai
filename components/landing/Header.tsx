@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@/contexts/AuthContext'
 import { motion } from 'framer-motion'
 import { ArrowRight, Leaf } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function Header() {
-  const { isSignedIn } = useUser()
+  const { user } = useAuth()
 
   return (
     <motion.header 
@@ -58,7 +58,7 @@ export default function Header() {
           </div>
 
           <div className="flex items-center gap-4">
-            {isSignedIn ? (
+            {user ? (
               <Link href="/collector/dashboard">
                 <Button variant="outline" size="sm" className="font-semibold">Dashboard</Button>
               </Link>

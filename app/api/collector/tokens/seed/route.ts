@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs/server'
+import { getCurrentUser } from '@/lib/utils/auth'
 import { generateDummyTokenTransactions } from '@/lib/utils/token-dummy-data'
 import { logger } from '@/lib/logger'
 
@@ -10,11 +10,13 @@ import { logger } from '@/lib/logger'
  */
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth()
+    const tokenData = await getCurrentUser()
 
-    if (!userId) {
+    if (!tokenData) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    
+    const userId = tokenData.userId
 
     const body = await request.json().catch(() => ({}))
     const count = body.count || 30 // Default to 30 transactions
@@ -31,9 +33,7 @@ export async function POST(request: NextRequest) {
       message: `Generated ${count} dummy token transactions`,
     })
   } catch (error) {
-    logger.error('Error seeding token transactions', error instanceof Error ? error : new Error(String(error)), {
-      userId: await auth().then((a) => a.userId),
-    })
+    logger.error('Error seeding token transactions', error instanceof Error ? error : new Error(String(error)))
     return NextResponse.json(
       {
         error: 'Failed to seed token transactions',
