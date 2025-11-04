@@ -43,6 +43,7 @@ import {
   AlertCircle,
   CheckCircle2,
   TrendingUp,
+  Route,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { logger } from '@/lib/logger'
@@ -104,6 +105,11 @@ export default function EnhancedMapView({ apiKey }: MapViewProps) {
   const heatmapLayerRef = useRef<google.maps.visualization.HeatmapLayer | null>(null)
   const mapRef = useRef<google.maps.Map | null>(null)
   const isUpdatingMapRef = useRef(false) // Prevent infinite loops from map events
+  const [optimizedRoute, setOptimizedRoute] = useState<any>(null)
+  const [isOptimizing, setIsOptimizing] = useState(false)
+  const [showRoute, setShowRoute] = useState(false)
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null)
+  const [currentLocation, setCurrentLocation] = useState<[number, number] | null>(null)
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
@@ -236,6 +242,7 @@ export default function EnhancedMapView({ apiKey }: MapViewProps) {
           isUpdatingMapRef.current = true
           setCenter(newCenter)
           setZoom(14)
+          setCurrentLocation([position.coords.longitude, position.coords.latitude])
           if (map) {
             map.setCenter(newCenter)
             map.setZoom(14)
@@ -343,6 +350,147 @@ export default function EnhancedMapView({ apiKey }: MapViewProps) {
     }
   }
 
+  // Optimize route
+  const handleOptimizeRoute = async () => {
+    if (!map || !isLoaded) return
+
+    // Get active collection points
+    const activePoints = collectionPoints.filter(p => {
+      const status = 'status' in p ? p.status : 'active'
+      return status === 'active' || status === 'high-demand'
+    })
+
+    if (activePoints.length === 0) {
+      alert('No active collection points to optimize route for.')
+      return
+    }
+
+    // Use current location or map center as origin
+    const origin: [number, number] = currentLocation || [center.lng, center.lat]
+
+    // Prepare waypoints
+    const waypoints = activePoints.map((p) => ({
+      id: p.id,
+      location: {
+        coordinates: p.location.coordinates as [number, number],
+        address: p.location.address,
+      },
+      weight: 'wasteDetails' in p && p.wasteDetails
+        ? (p.wasteDetails.totalWeight as number) || 0
+        : 'weight' in p
+        ? (p.weight as number) || 0
+        : 0,
+      value: 'collectionInstructions' in p && p.collectionInstructions
+        ? (p.collectionInstructions.estimatedValue as number) || 0
+        : 0,
+      status: 'status' in p ? p.status : 'active',
+    }))
+
+    try {
+      setIsOptimizing(true)
+      setShowRoute(false)
+
+      // Call optimization API
+      const response = await fetch('/api/map/optimize-route', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          origin,
+          waypoints,
+          strategy: 'balanced',
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to optimize route')
+      }
+
+      const data = await response.json()
+      if (data.success) {
+        setOptimizedRoute(data.route)
+        setShowRoute(true)
+        
+        // Render route on map
+        renderRouteOnMap(data.route, origin)
+      }
+    } catch (error) {
+      logger.error('Route optimization failed', error instanceof Error ? error : new Error(String(error)))
+      alert('Failed to optimize route. Please try again.')
+    } finally {
+      setIsOptimizing(false)
+    }
+  }
+
+  // Render optimized route on map
+  const renderRouteOnMap = (route: any, origin: [number, number]) => {
+    if (!map || !window.google) return
+
+    // Clear existing route
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setMap(null)
+    }
+
+    // Create waypoints for Directions API
+    const waypoints = route.waypoints.map((wp: any) => ({
+      location: new google.maps.LatLng(
+        wp.location.coordinates[1],
+        wp.location.coordinates[0]
+      ),
+      stopover: true,
+    }))
+
+    // Create DirectionsService
+    const directionsService = new google.maps.DirectionsService()
+    const directionsRenderer = new google.maps.DirectionsRenderer({
+      map: map,
+      suppressMarkers: true, // Suppress default markers so our custom markers remain visible
+      polylineOptions: {
+        strokeColor: '#10B981',
+        strokeWeight: 4,
+        strokeOpacity: 0.8,
+      },
+    })
+
+    directionsRendererRef.current = directionsRenderer
+
+    // Request route
+    directionsService.route(
+      {
+        origin: new google.maps.LatLng(origin[1], origin[0]),
+        destination: waypoints.length > 0 
+          ? waypoints[waypoints.length - 1].location
+          : new google.maps.LatLng(origin[1], origin[0]),
+        waypoints: waypoints.slice(0, -1), // Exclude last waypoint (it's the destination)
+        optimizeWaypoints: false, // We already optimized
+        travelMode: google.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK && result) {
+          directionsRenderer.setDirections(result)
+          
+          // Fit bounds to show entire route
+          const bounds = new google.maps.LatLngBounds()
+          result.routes[0].bounds && bounds.union(result.routes[0].bounds)
+          map.fitBounds(bounds)
+        } else {
+          logger.error('Directions request failed', new Error(String(status)))
+        }
+      }
+    )
+  }
+
+  // Clear route
+  const handleClearRoute = () => {
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setMap(null)
+      directionsRendererRef.current = null
+    }
+    setShowRoute(false)
+    setOptimizedRoute(null)
+  }
+
   // Filter markers based on status
   const filteredCollectionPoints = collectionPoints.filter(p => {
     if (filterStatus === 'all') return true
@@ -356,19 +504,24 @@ export default function EnhancedMapView({ apiKey }: MapViewProps) {
     return true
   })
 
-  // Get marker icon
+  // Get marker icon - smaller and more intuitive
   const getMarkerIcon = (status: string, type?: string, weight?: number) => {
-    const baseSize = type === 'collection' ? 40 : 32
-    const scale = weight ? Math.min(1.5, 0.8 + (weight / 50)) : 1
+    // Smaller base sizes for better UX
+    const baseSize = 8 // Base size in pixels
+    // Subtle weight-based scaling (max 20% increase)
+    const weightScale = weight ? Math.min(1.2, 1 + (weight / 100)) : 1
+    const finalSize = baseSize * weightScale
 
     if (type === 'collection') {
+      // Collection points - use pin shape
+      const size = Math.round(finalSize)
       return {
         path: google.maps.SymbolPath.CIRCLE,
-        scale: baseSize * scale,
+        scale: size,
         fillColor: status === 'high-demand' ? '#EF4444' : '#3B82F6',
-        fillOpacity: 0.8,
+        fillOpacity: 0.85,
         strokeColor: '#FFFFFF',
-        strokeWeight: 3,
+        strokeWeight: 2,
         zIndex: status === 'high-demand' ? 1000 : 500,
       }
     }
@@ -377,35 +530,36 @@ export default function EnhancedMapView({ apiKey }: MapViewProps) {
       case 'active':
         return {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: baseSize * scale,
+          scale: Math.round(finalSize),
           fillColor: '#10B981',
-          fillOpacity: 0.9,
+          fillOpacity: 0.85,
           strokeColor: '#FFFFFF',
-          strokeWeight: 3,
+          strokeWeight: 2,
         }
       case 'high-demand':
+        // Slightly larger for high-demand but not too big
         return {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: baseSize * scale * 1.2,
+          scale: Math.round(finalSize * 1.15), // Only 15% larger
           fillColor: '#EF4444',
           fillOpacity: 0.9,
           strokeColor: '#FFFFFF',
-          strokeWeight: 4,
+          strokeWeight: 2.5,
           zIndex: 1000,
         }
       case 'depleted':
         return {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: baseSize * 0.7,
-          fillColor: '#6B7280',
-          fillOpacity: 0.6,
+          scale: Math.round(finalSize * 0.7),
+          fillColor: '#9CA3AF',
+          fillOpacity: 0.5,
           strokeColor: '#FFFFFF',
-          strokeWeight: 2,
+          strokeWeight: 1.5,
         }
       default:
         return {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: baseSize,
+          scale: Math.round(finalSize),
           fillColor: '#EF4444',
           fillOpacity: 0.8,
           strokeColor: '#FFFFFF',
@@ -525,6 +679,40 @@ export default function EnhancedMapView({ apiKey }: MapViewProps) {
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
+
+        {/* Optimize Route */}
+        <Button
+          onClick={handleOptimizeRoute}
+          size="sm"
+          variant="default"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl border-2 border-emerald-700"
+          disabled={isOptimizing || collectionPoints.length === 0}
+        >
+          {isOptimizing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Optimizing...
+            </>
+          ) : (
+            <>
+              <Route className="w-4 h-4 mr-2" />
+              Optimize Route
+            </>
+          )}
+        </Button>
+
+        {/* Clear Route */}
+        {showRoute && (
+          <Button
+            onClick={handleClearRoute}
+            size="sm"
+            variant="outline"
+            className="bg-white/95 backdrop-blur-sm shadow-xl border-2 border-gray-200"
+          >
+            <X className="w-4 h-4 mr-2" />
+            Clear Route
+          </Button>
+        )}
       </div>
 
       {/* Map */}
@@ -855,6 +1043,60 @@ export default function EnhancedMapView({ apiKey }: MapViewProps) {
           </div>
         </div>
       </motion.div>
+
+      {/* Optimized Route Summary */}
+      {showRoute && optimizedRoute && (
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="absolute bottom-4 right-4 z-10 bg-white/95 backdrop-blur-sm rounded-xl shadow-xl p-4 border-2 border-emerald-200 max-w-sm"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Route className="w-5 h-5 text-emerald-600" />
+              <div className="font-bold text-sm text-gray-900">Optimized Route</div>
+            </div>
+            <Button
+              onClick={handleClearRoute}
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Stops:</span>
+              <span className="font-semibold text-gray-900">{optimizedRoute.summary.totalStops}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Distance:</span>
+              <span className="font-semibold text-gray-900">
+                {(optimizedRoute.totalDistance / 1000).toFixed(2)} km
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Est. Duration:</span>
+              <span className="font-semibold text-gray-900">
+                {Math.round(optimizedRoute.totalDuration / 60)} min
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Total Weight:</span>
+              <span className="font-semibold text-gray-900">
+                {optimizedRoute.summary.totalWeight.toFixed(1)} kg
+              </span>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t">
+              <span className="text-gray-600">Est. Value:</span>
+              <span className="font-bold text-emerald-600">
+                ৳{optimizedRoute.estimatedValue.toFixed(0)}
+              </span>
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   )
 }

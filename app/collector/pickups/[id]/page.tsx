@@ -2,12 +2,17 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, MapPin, Package, Weight, Calendar, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { 
+  ArrowLeft, MapPin, Package, Weight, Calendar, CheckCircle2, Clock, XCircle, 
+  Shield, Zap, Loader2, FileText, Copy
+} from 'lucide-react'
 import Image from 'next/image'
+import { format, isToday, isYesterday } from 'date-fns'
 
 interface Pickup {
   id: string
@@ -50,31 +55,22 @@ export default function PickupDetailPage() {
         setLoading(true)
         setError(null)
         
-        // Handle Next.js params which might be string or array
         const pickupId = Array.isArray(params.id) ? params.id[0] : params.id
         
         if (!pickupId) {
           throw new Error('Pickup ID is missing')
         }
         
-        console.log('🔍 Fetching pickup with ID:', pickupId, typeof pickupId)
-        
         const response = await fetch(`/api/pickups/${pickupId}`)
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-          console.error('❌ Failed to fetch pickup:', {
-            status: response.status,
-            error: errorData.error,
-            pickupId: pickupId
-          })
           throw new Error(errorData.error || `Failed to fetch pickup (${response.status})`)
         }
         
         const data = await response.json()
         
         if (data.success && data.pickup) {
-          // Map API response to component interface
           setPickup({
             id: data.pickup.id,
             category: data.pickup.category,
@@ -86,7 +82,7 @@ export default function PickupDetailPage() {
             },
             photos: {
               before: { url: data.pickup.photos.before.url },
-              after: data.pickup.photos.after ? { url: data.pickup.photos.after.url } : undefined,
+              after: data.pickup.photos.after && data.pickup.photos.after.url ? { url: data.pickup.photos.after.url } : undefined,
             },
             verification: data.pickup.verification ? {
               aiConfidence: data.pickup.verification.aiConfidence,
@@ -115,15 +111,59 @@ export default function PickupDetailPage() {
     }
   }, [params.id])
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline', label: string }> = {
-      pending: { variant: 'secondary', label: 'Pending Review' },
-      verified: { variant: 'default', label: 'Verified' },
-      rejected: { variant: 'destructive', label: 'Rejected' },
-      paid: { variant: 'default', label: 'Paid' }
+  const getStatusConfig = (status: string) => {
+    const configs: Record<string, { 
+      label: string
+      color: string
+      bgColor: string
+      icon: any
+    }> = {
+      pending: {
+        label: 'Pending',
+        color: 'text-amber-700',
+        bgColor: 'bg-amber-50',
+        icon: Clock
+      },
+      verified: {
+        label: 'Verified',
+        color: 'text-emerald-700',
+        bgColor: 'bg-emerald-50',
+        icon: CheckCircle2
+      },
+      rejected: {
+        label: 'Rejected',
+        color: 'text-red-700',
+        bgColor: 'bg-red-50',
+        icon: XCircle
+      },
+      paid: {
+        label: 'Paid',
+        color: 'text-green-700',
+        bgColor: 'bg-green-50',
+        icon: CheckCircle2
+      }
     }
-    const config = variants[status] || { variant: 'secondary', label: status }
-    return <Badge variant={config.variant}>{config.label}</Badge>
+    return configs[status] || configs.pending
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    if (isToday(date)) return 'Today'
+    if (isYesterday(date)) return 'Yesterday'
+    return format(date, 'MMM dd, yyyy')
+  }
+
+  const formatTime = (dateString: string) => {
+    return format(new Date(dateString), 'h:mm a')
+  }
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      // You could add a toast notification here
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
   }
 
   if (loading) {
@@ -131,8 +171,8 @@ export default function PickupDetailPage() {
       <DashboardLayout title="Pickup Details">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading pickup details...</p>
+            <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-3" />
+            <p className="text-gray-600">Loading...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -142,11 +182,11 @@ export default function PickupDetailPage() {
   if (error || !pickup) {
     return (
       <DashboardLayout title="Pickup Details">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() => router.back()}
-            className="mb-6"
+            className="mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
@@ -154,11 +194,9 @@ export default function PickupDetailPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-12">
-                <XCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <XCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Pickup Not Found</h3>
-                <p className="text-gray-600 mb-6">
-                  {error || 'The pickup you\'re looking for doesn\'t exist or has been removed.'}
-                </p>
+                <p className="text-gray-600 mb-6">{error || 'The pickup doesn\'t exist.'}</p>
                 <Button onClick={() => router.push('/collector/dashboard')}>
                   Go to Dashboard
                 </Button>
@@ -170,65 +208,100 @@ export default function PickupDetailPage() {
     )
   }
 
+  const statusConfig = getStatusConfig(pickup.status)
+  const StatusIcon = statusConfig.icon
+
   return (
     <DashboardLayout title="Pickup Details">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <Button
-          variant="outline"
-          onClick={() => router.back()}
-          className="mb-4"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-
+      <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            onClick={() => router.back()}
+            size="sm"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${statusConfig.bgColor}`}>
+            <StatusIcon className={`w-4 h-4 ${statusConfig.color}`} />
+            <span className={`text-sm font-semibold ${statusConfig.color}`}>
+              {statusConfig.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Pickup Info */}
         <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between mb-6">
               <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <CardTitle className="text-2xl">Pickup #{pickup.id.slice(-8)}</CardTitle>
-                  {getStatusBadge(pickup.status)}
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                  Pickup #{pickup.id.slice(-8).toUpperCase()}
+                </h1>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Calendar className="w-4 h-4" />
+                  <span>{formatDate(pickup.createdAt)} at {formatTime(pickup.createdAt)}</span>
                 </div>
-                <p className="text-gray-600">
-                  Created on {new Date(pickup.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </p>
               </div>
             </div>
-          </CardHeader>
-        </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Photos */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Photos</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Before</p>
-                <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200">
-                  <Image
-                    src={pickup.photos.before.url}
-                    alt="Before photo"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
+            {/* Quick Info */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="p-3 rounded-lg bg-gray-50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Package className="w-4 h-4 text-gray-500" />
+                  <span className="text-xs text-gray-500">Category</span>
                 </div>
+                <p className="text-lg font-bold text-gray-900">{pickup.category}</p>
               </div>
-              {pickup.photos.after && (
+              <div className="p-3 rounded-lg bg-gray-50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Weight className="w-4 h-4 text-gray-500" />
+                  <span className="text-xs text-gray-500">Weight</span>
+                </div>
+                <p className="text-lg font-bold text-gray-900">{pickup.estimatedWeight} kg</p>
+              </div>
+            </div>
+
+            {/* Photos */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Photos</h3>
+              {pickup.photos.after && pickup.photos.after.url ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">Before</p>
+                    <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
+                      <Image
+                        src={pickup.photos.before.url}
+                        alt="Before"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">After</p>
+                    <div className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
+                      <Image
+                        src={pickup.photos.after.url}
+                        alt="After"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">After</p>
-                  <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200">
+                  <p className="text-xs text-gray-500 mb-2">Before</p>
+                  <div className="relative aspect-square max-w-md rounded-lg overflow-hidden border border-gray-200">
                     <Image
-                      src={pickup.photos.after.url}
-                      alt="After photo"
+                      src={pickup.photos.before.url}
+                      alt="Before"
                       fill
                       className="object-cover"
                       unoptimized
@@ -236,153 +309,133 @@ export default function PickupDetailPage() {
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Package className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Category</p>
-                  <p className="font-semibold">{pickup.category}</p>
+            {/* Location */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">Location</h3>
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-gray-50">
+                <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-900 break-words">{pickup.location.address}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {pickup.location.coordinates[1].toFixed(6)}, {pickup.location.coordinates[0].toFixed(6)}
+                  </p>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => copyToClipboard(pickup.location.address)}
+                  className="h-7 w-7 p-0"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </Button>
               </div>
-              <div className="flex items-center gap-3">
-                <Weight className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <p className="text-sm text-gray-600">Weight</p>
-                  <p className="font-semibold">{pickup.estimatedWeight} kg</p>
+              {pickup.location.coordinates && pickup.location.coordinates.length === 2 && (
+                <div className="mt-3 h-48 rounded-lg overflow-hidden border border-gray-200">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    style={{ border: 0 }}
+                    src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${pickup.location.coordinates[1]},${pickup.location.coordinates[0]}&zoom=15`}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <MapPin className="w-5 h-5 text-emerald-600" />
-                <div className="flex-1">
-                  <p className="text-sm text-gray-600">Location</p>
-                  <p className="font-semibold">{pickup.location.address}</p>
-                </div>
-              </div>
-              {pickup.verification && (
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-sm font-medium text-gray-900 mb-2">AI Verification</p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Confidence:</span>
-                      <span className="font-semibold">
+              )}
+            </div>
+
+            {/* AI Verification */}
+            {pickup.verification && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">AI Verification</h3>
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-gray-500">Confidence</span>
+                      <span className="text-sm font-bold text-gray-900">
                         {Math.round(pickup.verification.aiConfidence * 100)}%
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">AI Category:</span>
-                      <span className="font-semibold">{pickup.verification.aiCategory || 'N/A'}</span>
+                    <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500 rounded-full"
+                        style={{ width: `${pickup.verification.aiConfidence * 100}%` }}
+                      />
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">AI Weight:</span>
-                      <span className="font-semibold">{pickup.verification.aiWeight} kg</span>
-                    </div>
-                    {pickup.verification.manualReview && (
-                      <Badge variant="secondary" className="mt-2">Requires Manual Review</Badge>
-                    )}
                   </div>
-                </div>
-              )}
-              {pickup.notes && (
-                <div className="pt-4 border-t border-gray-200">
-                  <p className="text-sm font-medium text-gray-900 mb-2">Notes</p>
-                  <p className="text-sm text-gray-600">{pickup.notes}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Status History */}
-        {pickup.statusHistory && pickup.statusHistory.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-emerald-600" />
-                Status History
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {pickup.statusHistory.map((entry, index) => (
-                  <div key={index} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {entry.status === 'verified' || entry.status === 'paid' ? (
-                        <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                        </div>
-                      ) : entry.status === 'rejected' ? (
-                        <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                          <XCircle className="w-5 h-5 text-red-600" />
-                        </div>
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-                          <Clock className="w-5 h-5 text-gray-400" />
-                        </div>
-                      )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-lg bg-gray-50">
+                      <p className="text-xs text-gray-500 mb-1">AI Category</p>
+                      <p className="text-sm font-bold text-gray-900">{pickup.verification.aiCategory || 'N/A'}</p>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <span className="font-semibold capitalize text-gray-900">{entry.status}</span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(entry.timestamp).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
+                    <div className="p-3 rounded-lg bg-gray-50">
+                      <p className="text-xs text-gray-500 mb-1">AI Weight</p>
+                      <p className="text-sm font-bold text-gray-900">{pickup.verification.aiWeight} kg</p>
+                    </div>
+                  </div>
+                  {pickup.verification.manualReview && (
+                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-600" />
+                        <span className="text-sm font-semibold text-amber-900">Requires Manual Review</span>
                       </div>
-                      {entry.notes && (
-                        <p className="text-sm text-gray-600 mt-1">{entry.notes}</p>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
 
-        {/* Map View */}
-        {pickup.location.coordinates && pickup.location.coordinates.length === 2 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-emerald-600" />
-                Location on Map
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 rounded-lg overflow-hidden border-2 border-gray-200 bg-gray-100">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  style={{ border: 0 }}
-                  src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${pickup.location.coordinates[1]},${pickup.location.coordinates[0]}&zoom=15`}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
+            {/* Notes */}
+            {pickup.notes && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Notes</h3>
+                <p className="text-sm text-gray-700 p-3 rounded-lg bg-gray-50">{pickup.notes}</p>
               </div>
-              <p className="text-sm text-gray-600 mt-3 flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                {pickup.location.address}
-              </p>
-            </CardContent>
-          </Card>
-        )}
+            )}
+
+            {/* Status History */}
+            {pickup.statusHistory && pickup.statusHistory.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Status History</h3>
+                <div className="space-y-3">
+                  {pickup.statusHistory.map((entry, index) => {
+                    const entryStatusConfig = getStatusConfig(entry.status)
+                    const EntryIcon = entryStatusConfig.icon
+                    const isLast = index === pickup.statusHistory.length - 1
+                    
+                    return (
+                      <div key={index} className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-full ${entryStatusConfig.bgColor} flex items-center justify-center flex-shrink-0`}>
+                          <EntryIcon className={`w-4 h-4 ${entryStatusConfig.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-sm font-semibold capitalize ${entryStatusConfig.color}`}>
+                              {entry.status}
+                            </span>
+                            {isLast && (
+                              <Badge variant="secondary" className="text-xs">Current</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">
+                            {formatDate(entry.timestamp)} at {formatTime(entry.timestamp)}
+                          </p>
+                          {entry.notes && (
+                            <p className="text-xs text-gray-600 mt-1">{entry.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   )
 }
-

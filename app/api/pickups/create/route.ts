@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { connectToDatabase, Pickup } from '@/lib/models'
-import { uploadToCloudinary } from '@/lib/cloudinary'
+import { uploadToCloudinary, type CloudinaryUploadResult } from '@/lib/cloudinary'
 import { analyzePlasticImage } from '@/lib/gemini'
 import { logger } from '@/lib/logger'
 import { updateHotspotFromPickup } from '@/lib/utils/hotspot-updater'
@@ -71,60 +71,90 @@ export async function POST(request: NextRequest) {
     const pickupId = `pickup-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const folderPath = `ekotaka/pickups/${pickupId}`
 
-    logger.info('Starting photo uploads to Cloudinary', { pickupId, folderPath })
+    logger.info('Starting parallel operations', { pickupId, folderPath })
     
-    // Step 1: Upload photos to Cloudinary
-    let beforePhotoResult
-    let afterPhotoResult
+    // Connect to database early (non-blocking, but start connection process)
+    const dbConnectionPromise = connectToDatabase()
+    
+    // Step 1: Upload photos to Cloudinary IN PARALLEL
+    const uploadPromises: Array<Promise<{ type: 'before' | 'after'; result: CloudinaryUploadResult }>> = [
+      uploadToCloudinary(beforePhoto, `${folderPath}/before`).then(result => {
+        logger.success('Before photo uploaded', { publicId: result.publicId })
+        return { type: 'before' as const, result }
+      })
+    ]
+    
+    if (afterPhoto) {
+      uploadPromises.push(
+        uploadToCloudinary(afterPhoto, `${folderPath}/after`).then(result => {
+          logger.success('After photo uploaded', { publicId: result.publicId })
+          return { type: 'after' as const, result }
+        })
+      )
+    }
+    
+    // Step 2: Start AI analysis IN PARALLEL with photo uploads
+    // AI only needs the before photo, so we can analyze it while uploading
+    const aiAnalysisPromise = analyzePlasticImage(beforePhoto, category, weight)
+      .then(analysis => {
+        logger.info('AI analysis completed', {
+          pickupId,
+          detectedCategory: analysis.detectedCategory,
+          confidence: analysis.confidence,
+          aiWeight: analysis.estimatedWeight
+        })
+        return analysis
+      })
+      .catch(aiError => {
+        logger.error('Gemini AI analysis failed', aiError instanceof Error ? aiError : new Error(String(aiError)), {
+          pickupId
+        })
+        // Return fallback result
+        return {
+          detectedCategory: null,
+          confidence: 0.3,
+          estimatedWeight: weight,
+          reasoning: `AI analysis failed: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`,
+          manualReviewRequired: true,
+          detectedItems: [],
+        }
+      })
+    
+    // Wait for all uploads and AI analysis to complete in parallel
+    let beforePhotoResult: CloudinaryUploadResult
+    let afterPhotoResult: CloudinaryUploadResult | undefined
+    let aiAnalysis: Awaited<ReturnType<typeof analyzePlasticImage>>
     
     try {
-      beforePhotoResult = await uploadToCloudinary(beforePhoto, `${folderPath}/before`)
-      logger.success('Before photo uploaded', { publicId: beforePhotoResult.publicId })
+      const [uploadResults, aiResult] = await Promise.all([
+        Promise.all(uploadPromises),
+        aiAnalysisPromise
+      ])
       
-      if (afterPhoto) {
-        afterPhotoResult = await uploadToCloudinary(afterPhoto, `${folderPath}/after`)
-        logger.success('After photo uploaded', { publicId: afterPhotoResult.publicId })
+      // Extract upload results
+      const beforeResult = uploadResults.find(r => r.type === 'before')
+      const afterResult = uploadResults.find(r => r.type === 'after')
+      
+      if (!beforeResult?.result) {
+        throw new Error('Before photo upload failed')
       }
+      
+      beforePhotoResult = beforeResult.result
+      afterPhotoResult = afterResult?.result
+      aiAnalysis = aiResult
+      
     } catch (uploadError) {
-      logger.error('Cloudinary upload failed', uploadError instanceof Error ? uploadError : new Error(String(uploadError)), {
+      logger.error('Upload or AI analysis failed', uploadError instanceof Error ? uploadError : new Error(String(uploadError)), {
         pickupId,
         hasAfterPhoto: !!afterPhoto
       })
       return NextResponse.json(
         { 
-          error: 'Failed to upload photos',
+          error: 'Failed to upload photos or analyze image',
           details: uploadError instanceof Error ? uploadError.message : 'Unknown upload error'
         },
         { status: 500 }
       )
-    }
-
-    logger.info('Starting AI analysis with Gemini', { pickupId, userCategory: category, userWeight: weight })
-    
-    // Step 2: Analyze image with Gemini AI
-    let aiAnalysis
-    try {
-      aiAnalysis = await analyzePlasticImage(beforePhoto, category, weight)
-      logger.info('AI analysis completed', {
-        pickupId,
-        detectedCategory: aiAnalysis.detectedCategory,
-        confidence: aiAnalysis.confidence,
-        aiWeight: aiAnalysis.estimatedWeight
-      })
-    } catch (aiError) {
-      logger.error('Gemini AI analysis failed', aiError instanceof Error ? aiError : new Error(String(aiError)), {
-        pickupId
-      })
-      // Continue with user-provided data if AI fails, but flag for manual review
-      aiAnalysis = {
-        detectedCategory: null,
-        confidence: 0.3,
-        estimatedWeight: weight,
-        reasoning: `AI analysis failed: ${aiError instanceof Error ? aiError.message : 'Unknown error'}`,
-        manualReviewRequired: true,
-        detectedItems: [],
-      }
-      logger.warn('Using fallback AI analysis result', { pickupId, fallbackResult: aiAnalysis })
     }
 
     // Determine final category (AI detected vs user provided)
@@ -213,9 +243,9 @@ export async function POST(request: NextRequest) {
       location: address
     })
     
-    // Step 5: Save to MongoDB
+    // Step 5: Save to MongoDB (connection already started earlier)
     try {
-      await connectToDatabase()
+      await dbConnectionPromise // Wait for connection if not already connected
       
       const newPickup = new Pickup(pickupData)
       const saveStartTime = Date.now()
