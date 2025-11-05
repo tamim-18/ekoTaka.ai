@@ -273,8 +273,19 @@ export async function POST(request: NextRequest) {
     // Calculate total amount
     const totalAmount = quantity * unitPrice
 
+    // Generate unique order ID
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
+    const orderId = `ORD-${year}-${month}${day}${hours}${minutes}-${random}`
+
     // Create order
     const newOrder = new Order({
+      orderId,
       brandId,
       collectorId: pickup.collectorId,
       pickupId,

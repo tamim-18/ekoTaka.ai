@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
           LayoutDashboard, Package, PlusCircle, Wallet, 
-          User, Map, X, Menu, Leaf, Sparkles
+          User, Map, X, Menu, Leaf, Sparkles, MessageSquare
         } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -54,6 +54,12 @@ const navigationItems = [
     name: 'Map View',
     href: '/collector/map',
     icon: Map,
+    badge: null
+  },
+  {
+    name: 'Messages',
+    href: '/collector/messages',
+    icon: MessageSquare,
     badge: null
   },
   {

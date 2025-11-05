@@ -22,9 +22,11 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
+  MessageSquare,
 } from 'lucide-react'
 import Image from 'next/image'
 import { format } from 'date-fns'
+import { toast } from 'sonner'
 
 interface InventoryItem {
   id: string
@@ -420,19 +422,54 @@ export default function BrandInventoryPage() {
                           </div>
                         )}
 
-                        {/* Action Button */}
-                        <Button
-                          onClick={() => {
-                            setSelectedItem(item)
-                            setOrderQuantity(item.availableWeight.toString())
-                            setShowOrderModal(true)
-                          }}
-                          disabled={!item.isAvailable}
-                          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                        >
-                          <ShoppingCart className="w-4 h-4 mr-2" />
-                          Order Now
-                        </Button>
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={async () => {
+                              try {
+                                // Create or get conversation
+                                const response = await fetch('/api/brand/messages/conversations', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    collectorId: item.collectorId,
+                                    relatedPickupId: item.id,
+                                    subject: `Inquiry about ${item.category} - ${item.availableWeight} kg`,
+                                    initialMessage: `Hi! I'm interested in your ${item.category} pickup (${item.availableWeight} kg available). Can you tell me more about it?`,
+                                  }),
+                                })
+
+                                const data = await response.json()
+                                if (data.success) {
+                                  // Navigate to messages page with conversation selected
+                                  router.push(`/brand/messages?conversation=${data.conversation.id}`)
+                                } else {
+                                  toast.error('Failed to start conversation')
+                                }
+                              } catch (error) {
+                                console.error('Error creating conversation:', error)
+                                toast.error('Failed to start conversation')
+                              }
+                            }}
+                            variant="outline"
+                            className="flex-1 border-emerald-500 text-emerald-600 hover:bg-emerald-50"
+                          >
+                            <MessageSquare className="w-4 h-4 mr-2" />
+                            Message
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setSelectedItem(item)
+                              setOrderQuantity(item.availableWeight.toString())
+                              setShowOrderModal(true)
+                            }}
+                            disabled={!item.isAvailable}
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                          >
+                            <ShoppingCart className="w-4 h-4 mr-2" />
+                            Order
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

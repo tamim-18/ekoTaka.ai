@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   LayoutDashboard, Package, ShoppingCart, 
-  Wallet, User, X, BarChart3, Building2
+  Wallet, User, X, BarChart3, Building2, MessageSquare
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -47,6 +47,12 @@ const navigationItems = [
     name: 'Analytics',
     href: '/brand/analytics',
     icon: BarChart3,
+    badge: null
+  },
+  {
+    name: 'Messages',
+    href: '/brand/messages',
+    icon: MessageSquare,
     badge: null
   },
   {
